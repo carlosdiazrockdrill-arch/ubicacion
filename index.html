@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Compartir ubicación</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      font-family: Arial, Helvetica, sans-serif;
+      background: #f4f6f8;
+    }
+    .card {
+      width: 100%;
+      max-width: 460px;
+      background: #fff;
+      border-radius: 16px;
+      padding: 32px 24px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.10);
+      text-align: center;
+    }
+    h1 { margin: 0 0 12px; font-size: 26px; color: #202124; }
+    p { color: #5f6368; line-height: 1.5; margin-bottom: 22px; }
+    button {
+      width: 100%;
+      border: 0;
+      border-radius: 9px;
+      padding: 15px;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      background: #1677ff;
+      color: #fff;
+    }
+    button:disabled { background: #a9a9a9; cursor: not-allowed; }
+    #estado {
+      display: none;
+      margin-top: 18px;
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 14px;
+      line-height: 1.4;
+    }
+    .procesando { display: block !important; background: #fff3cd; color: #664d03; }
+    .correcto { display: block !important; background: #d1e7dd; color: #0f5132; }
+    .error { display: block !important; background: #f8d7da; color: #842029; }
+    .nota { margin-top: 18px; font-size: 12px; color: #777; }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <h1>Compartir mi ubicación</h1>
+    <p>
+      Para continuar, comparte tu ubicación actual. Tu navegador te pedirá
+      autorización antes de acceder a ella.
+    </p>
+
+    <button id="btnUbicacion" type="button">Compartir mi ubicación</button>
+    <div id="estado" role="status" aria-live="polite"></div>
+
+    <div class="nota">
+      La ubicación solo se enviará después de que autorices el permiso del navegador.
+    </div>
+  </main>
+
+  <script>
+    const URL_FORMSPREE = "https://formspree.io/f/moevqjjr";
+
+    const boton = document.getElementById("btnUbicacion");
+    const estado = document.getElementById("estado");
+
+    function mostrarEstado(mensaje, tipo) {
+      estado.className = tipo;
+      estado.textContent = mensaje;
+    }
+
+    boton.addEventListener("click", obtenerUbicacion);
+
+    function obtenerUbicacion() {
+      if (!navigator.geolocation) {
+        mostrarEstado("Este navegador no permite obtener la ubicación.", "error");
+        return;
+      }
+
+      boton.disabled = true;
+      mostrarEstado("Solicitando permiso para acceder a tu ubicación...", "procesando");
+
+      navigator.geolocation.getCurrentPosition(
+        function (position) {
+          enviarUbicacion(
+            position.coords.latitude,
+            position.coords.longitude,
+            position.coords.accuracy
+          );
+        },
+        function (error) {
+          boton.disabled = false;
+
+          let mensaje = "No fue posible obtener la ubicación.";
+          if (error.code === error.PERMISSION_DENIED) {
+            mensaje = "No se concedió permiso para acceder a la ubicación.";
+          } else if (error.code === error.POSITION_UNAVAILABLE) {
+            mensaje = "La ubicación no está disponible en este momento.";
+          } else if (error.code === error.TIMEOUT) {
+            mensaje = "Se agotó el tiempo para obtener la ubicación.";
+          }
+
+          mostrarEstado(mensaje, "error");
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 15000,
+          maximumAge: 0
+        }
+      );
+    }
+
+    async function enviarUbicacion(latitud, longitud, precision) {
+      mostrarEstado("Ubicación obtenida. Enviando información...", "procesando");
+
+      const ahora = new Date();
+      const googleMaps = `https://www.google.com/maps?q=${latitud},${longitud}`;
+
+      const datos = {
+        _subject: "Nueva ubicación registrada",
+        fecha: ahora.toLocaleDateString("es-PE"),
+        hora: ahora.toLocaleTimeString("es-PE"),
+        latitud: latitud,
+        longitud: longitud,
+        precision_metros: Math.round(precision),
+        google_maps: googleMaps
+      };
+
+      try {
+        const respuesta = await fetch(URL_FORMSPREE, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+          },
+          body: JSON.stringify(datos)
+        });
+
+        if (!respuesta.ok) {
+          throw new Error("Formspree respondió con error");
+        }
+
+        mostrarEstado("✓ Ubicación enviada correctamente.", "correcto");
+      } catch (e) {
+        boton.disabled = false;
+        mostrarEstado(
+          "La ubicación fue obtenida, pero no se pudo enviar. Verifica tu conexión e inténtalo nuevamente.",
+          "error"
+        );
+      }
+    }
+  </script>
+</body>
+</html>
